@@ -13,11 +13,8 @@ permissions:
 
 env:
   ARTIFACT_NAME: "api-${{ github.sha }}.jar"
-  # imagem local simples
-  IMAGE_NAME: "java-api"
-  # aqui continua vindo o FQDN do secret, ex: repositoriopadoru.azurecr.io
+  IMAGE_NAME: "java-api:${{ github.sha }}"
   REGISTRY_NAME: ${{ secrets.AZURE_REGISTRY_NAME }}
-  # imagem no registry (usa o FQDN)
   REGISTRY_IMAGE: "${{ secrets.AZURE_REGISTRY_NAME }}/java-api:${{ github.sha }}"
 
 jobs:
@@ -40,7 +37,7 @@ jobs:
         run: mvn test
 
       - name: 🛠 Build Docker Image
-        run: docker build -t "$IMAGE_NAME" .
+        run: docker build -t ${{ env.IMAGE_NAME }} .
 
       - name: 🔐 Trivy Scan (Image)
         uses: aquasecurity/trivy-action@master
@@ -56,18 +53,13 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: 🔐 Docker Login to ACR
-        run: |
-          # REGISTRY_NAME = repositoriopadoru.azurecr.io
-          # precisamos só do "repositoriopadoru" pro az acr login
-          REG_NAME_NO_SUFFIX="${REGISTRY_NAME%%.azurecr.io}"
-          echo "Logging into ACR: $REG_NAME_NO_SUFFIX"
-          az acr login --name "$REG_NAME_NO_SUFFIX"
+        run: az acr login --name ${{ env.REGISTRY_NAME }}
 
       - name: 🏷️ Tag Docker Image
-        run: docker tag "$IMAGE_NAME" "$REGISTRY_IMAGE"
+        run: docker tag ${{ env.IMAGE_NAME }} ${{ env.REGISTRY_IMAGE }}
 
       - name: 📤 Push to Azure Container Registry
-        run: docker push "$REGISTRY_IMAGE"
+        run: docker push ${{ env.REGISTRY_IMAGE }}
 
       - name: 📦 Upload Artifact
         uses: actions/upload-artifact@v4
